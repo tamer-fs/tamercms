@@ -83,7 +83,7 @@ function App() {
               Password
             </label>
             <input
-              type="wachtwoord"
+              type="password"
               className="form-control"
               name="password"
               id="passwordInput"
