@@ -1,9 +1,10 @@
-import TitleBar from "./components/TitleBar";
+import TitleBar from "./components/TitleBar/TitleBar";
 import $ from "jquery";
 import "./App.css";
 import { useState } from "react";
 import db from "./firebaseConfig";
 import { onValue, ref, set } from "firebase/database";
+import TextInput from "./components/TextInputs/TextInput";
 
 function App() {
   const [buisnessName, setBuisnessName] = useState("");
@@ -11,54 +12,60 @@ function App() {
   const [inputFields, setInputFields] = useState([]);
   const [loggedIn, setLoggedIn] = useState(false);
   const [usedBuisnessName, setUsedBuisnessName] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   const handleLoginSubmit = (e) => {
-    let buisnessData;
     e.preventDefault();
     const buisnessRef = ref(db, `${buisnessName}/`);
     onValue(buisnessRef, (snapshot) => {
-      buisnessData = snapshot.val();
+      if (snapshot.val() != null) {
+        // buisness exists
+        setUsedBuisnessName(buisnessName);
+        const passwordRef = ref(db, `${buisnessName}/Password`);
+        onValue(passwordRef, (snapshot) => {
+          console.log(snapshot.val(), password);
+          if (snapshot.val() == password) {
+            // correct password
+            loadData();
+          } else {
+            setShowAlert(true);
+          }
+        });
+      } else {
+        setShowAlert(true);
+      }
     });
-    if (buisnessData != null) {
-      // buisness exists
-      setUsedBuisnessName(buisnessName);
-      const passwordRef = ref(db, `${buisnessName}/Password`);
-      onValue(passwordRef, (snapshot) => {
-        console.log(snapshot.val(), password);
-        if (snapshot.val() == password) {
-          // correct password
-          loadData();
-        } else {
-          alert("verkeerd wachtwoord / bedrijfsnaam");
-        }
-      });
-    } else {
-      alert("verkeerd wachtwoord / bedrijfsnaam");
-    }
+    
   };
 
   const loadData = () => {
     const inputsRef = ref(db, `${buisnessName}/Inputs`);
     onValue(inputsRef, (snapshot) => {
       setInputFields(snapshot.val());
-      console.log(snapshot.val());
     });
     setLoggedIn(true);
-    console.log(inputFields);
+    setShowAlert(false);
   };
 
-  const handleDataChange = (id, data, value) => {
-    set(ref(db, `${usedBuisnessName}/Inputs/${id}`), {
-      for: data.for,
-      content: value,
-    });
-    loadData();
-  };
+  const changePasswordType = () => {
+    const element = document.getElementById("password-input");
+    const btn = document.getElementById("show-btn");
+    if (element.type == "text") {
+      element.type = "password";
+      btn.innerText = "show";
+    } else {
+      element.type = "text";
+      btn.innerText = "hide";
+    }
+  }
 
   return (
     <>
       <TitleBar />
+      
       <div className="form-container">
+      {!loggedIn && 
+      <>
         <form
           className="main-form"
           action="http://localhost:8000/server.php"
@@ -80,43 +87,32 @@ function App() {
           </div>
           <div className="mb-3">
             <label htmlFor="passwordInput" className="form-label">
-              Password
+              Wachtwoord
             </label>
-            <input
-              type="password"
-              className="form-control"
-              name="password"
-              id="passwordInput"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="input-group has-validation">
+              
+              <input onChange={(e) => setPassword(e.target.value)} id="password-input" type="password" className="form-control"  required />
+              <button onClick={() => changePasswordType()} type="button" className="input-group-text" id="show-btn">show</button>
+            </div>
           </div>
-          <button type="submit" className="btn btn-primary">
+          <button type="submit" className="btn btn-primary" style={{marginBottom: 15}}>
             Log in
           </button>
+          {
+            showAlert && 
+            <div className="alert alert-danger" role="alert">
+              Verkeerde wachtwoord / bedrijfsnaam ingevuld. 
+              Tip: Let op de hoofdletters.
+            </div>
+          }
         </form>
+        
+        
+      </>
+      }
         <div className="cms-container">
           {inputFields.map((data, index) => (
-            <div className="input-container">
-              <label htmlFor={data.for}>{data.for}</label>
-              <textarea
-                id={data.for}
-                className="form-control"
-                placeholder={data.content}
-              />
-              <button
-                className="btn btn-outline-primary"
-                onClick={(e) =>
-                  handleDataChange(
-                    index,
-                    data,
-                    document.getElementById(data.for).value
-                  )
-                }
-              >
-                Invoeren
-              </button>
-            </div>
+            <TextInput data={data} index={index} usedBuisnessName={usedBuisnessName}/>
           ))}
         </div>
       </div>
